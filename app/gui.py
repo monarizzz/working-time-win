@@ -7,6 +7,38 @@ import psutil
 from . import db, icons
 
 UPTIME_REFRESH_MS = 60_000
+UPTIME_TOOLTIP_TEXT = (
+    "高速スタートアップが有効な場合、\n"
+    "実際の電源投入時刻より古い値が表示されることがあります。"
+)
+
+
+class Tooltip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tip_window = None
+        widget.bind("<Enter>", self.show)
+        widget.bind("<Leave>", self.hide)
+
+    def show(self, event=None):
+        if self.tip_window or not self.text:
+            return
+        x = self.widget.winfo_rootx()
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        tk.Label(
+            tw, text=self.text, justify=tk.LEFT,
+            background="#ffffe0", relief=tk.SOLID, borderwidth=1,
+            font=("", 9), padx=6, pady=3,
+        ).pack()
+
+    def hide(self, event=None):
+        if self.tip_window:
+            self.tip_window.destroy()
+            self.tip_window = None
 
 
 def format_seconds(total: int) -> str:
@@ -47,6 +79,7 @@ class DashboardWindow(tk.Toplevel):
         uptime_row.pack(fill=tk.X)
         self.uptime_label = ttk.Label(uptime_row, text="")
         self.uptime_label.pack(side=tk.LEFT)
+        Tooltip(self.uptime_label, UPTIME_TOOLTIP_TEXT)
 
         self.canvas = tk.Canvas(self, bg="white")
         self.canvas.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
