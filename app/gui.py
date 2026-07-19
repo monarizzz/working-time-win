@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-from . import db
+from . import db, icons
 
 
 def format_seconds(total: int) -> str:
@@ -59,28 +59,36 @@ class DashboardWindow(tk.Toplevel):
         day = self.day_var.get()
         rows = db.get_usage_by_process(day)
         self.draw_bars(rows)
-        total = sum(r[1] for r in rows)
+        total = sum(r[2] for r in rows)
         self.total_label.config(text=f"合計: {format_seconds(total)}")
 
     def draw_bars(self, rows):
         self.canvas.delete("all")
+        self._icon_refs = []
         if not rows:
             self.canvas.create_text(20, 20, anchor="nw", text="この日のデータはありません")
             return
 
-        max_seconds = max(r[1] for r in rows) or 1
+        max_seconds = max(r[2] for r in rows) or 1
         bar_height = 28
         gap = 12
-        left_margin = 160
+        icon_size = 20
+        icon_x = 14
+        text_x = icon_x + icon_size + 8
+        left_margin = 200
         right_margin = 90
         canvas_width = self.canvas.winfo_width() or 500
         bar_area_width = max(canvas_width - left_margin - right_margin, 50)
 
         y = 10
-        for process_name, total in rows:
+        for process_name, display_name, total, exe_path in rows:
             bar_len = int((total / max_seconds) * bar_area_width)
+            photo = icons.get_icon_photo(process_name, exe_path, size=icon_size)
+            if photo:
+                self._icon_refs.append(photo)
+                self.canvas.create_image(icon_x, y + bar_height / 2, anchor="w", image=photo)
             self.canvas.create_text(
-                left_margin - 10, y + bar_height / 2, anchor="e", text=process_name
+                text_x, y + bar_height / 2, anchor="w", text=display_name
             )
             self.canvas.create_rectangle(
                 left_margin, y, left_margin + bar_len, y + bar_height,
