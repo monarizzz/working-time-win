@@ -1,3 +1,4 @@
+import ctypes
 import tkinter as tk
 
 from .tracker import Tracker
@@ -5,7 +6,24 @@ from .gui import DashboardWindow
 from .tray import TrayApp
 
 
+def _enable_dpi_awareness():
+    """高DPIモニターでウィンドウがぼやけて表示されるのを防ぐ。
+
+    宣言しないとWindowsが96DPI前提でレンダリングした結果を
+    ビットマップ拡大するため、文字やアイコンがにじんで見える。
+    """
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
+    except (AttributeError, OSError):
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except (AttributeError, OSError):
+            pass
+
+
 def main():
+    _enable_dpi_awareness()
+
     tracker = Tracker()
     tracker.start()
 
