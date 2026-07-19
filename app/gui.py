@@ -1,0 +1,95 @@
+import tkinter as tk
+from tkinter import ttk
+
+from . import db
+
+
+def format_seconds(total: int) -> str:
+    h, rem = divmod(int(total), 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}時間{m}分"
+    if m:
+        return f"{m}分{s}秒"
+    return f"{s}秒"
+
+
+class DashboardWindow(tk.Toplevel):
+    def __init__(self, master=None):
+        super().__init__(master)
+        self.title("ソフトウェア使用時間ダッシュボード")
+        self.geometry("560x480")
+        self.minsize(480, 360)
+
+        top = ttk.Frame(self, padding=10)
+        top.pack(fill=tk.X)
+
+        ttk.Label(top, text="日付:").pack(side=tk.LEFT)
+        self.day_var = tk.StringVar()
+        self.day_combo = ttk.Combobox(top, textvariable=self.day_var, state="readonly", width=15)
+        self.day_combo.pack(side=tk.LEFT, padx=5)
+        self.day_combo.bind("<<ComboboxSelected>>", lambda e: self.refresh())
+
+        ttk.Button(top, text="更新", command=self.refresh).pack(side=tk.LEFT, padx=5)
+
+        self.total_label = ttk.Label(top, text="", font=("", 10, "bold"))
+        self.total_label.pack(side=tk.RIGHT)
+
+        self.canvas = tk.Canvas(self, bg="white")
+        self.canvas.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        self.protocol("WM_DELETE_WINDOW", self.withdraw)
+
+        self.load_days()
+        self.refresh()
+
+    def load_days(self):
+        days = db.get_available_days()
+        from datetime import date
+
+        today = date.today().isoformat()
+        if today not in days:
+            days.insert(0, today)
+        self.day_combo["values"] = days
+        if not self.day_var.get():
+            self.day_var.set(today)
+
+    def refresh(self):
+        self.load_days()
+        day = self.day_var.get()
+        rows = db.get_usage_by_process(day)
+        self.draw_bars(rows)
+        total = sum(r[1] for r in rows)
+        self.total_label.config(text=f"合計: {format_seconds(total)}")
+
+    def draw_bars(self, rows):
+        self.canvas.delete("all")
+        if not rows:
+            self.canvas.create_text(20, 20, anchor="nw", text="この日のデータはありません")
+            return
+
+        max_seconds = max(r[1] for r in rows) or 1
+        bar_height = 28
+        gap = 12
+        left_margin = 160
+        right_margin = 90
+        canvas_width = self.canvas.winfo_width() or 500
+        bar_area_width = max(canvas_width - left_margin - right_margin, 50)
+
+        y = 10
+        for process_name, total in rows:
+            bar_len = int((total / max_seconds) * bar_area_width)
+            self.canvas.create_text(
+                left_margin - 10, y + bar_height / 2, anchor="e", text=process_name
+            )
+            self.canvas.create_rectangle(
+                left_margin, y, left_margin + bar_len, y + bar_height,
+                fill="#4a90d9", outline=""
+            )
+            self.canvas.create_text(
+                left_margin + bar_len + 8, y + bar_height / 2, anchor="w",
+                text=format_seconds(total)
+            )
+            y += bar_height + gap
+
+        self.canvas.config(scrollregion=(0, 0, canvas_width, y + 10))
