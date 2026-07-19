@@ -27,7 +27,22 @@ pip install pyinstaller
 pyinstaller --onefile --noconsole --name WorkingTime run.py
 ```
 
-生成された `dist/WorkingTime.exe` をスタートアップフォルダに登録すると、ログイン時に自動起動できます。
+生成された `dist/WorkingTime.exe` をスタートアップフォルダ(`shell:startup`)にショートカットとして登録すると、ログイン時に自動起動できます。
+
+### 開発運用フロー(重要)
+
+`WorkingTime.exe` は **ビルド時点のコードを固めたスナップショット** です。`app/` 以下のソースコードを後から変更しても、既存の exe には反映されません。
+
+- コードを頻繁に触っている間は `python run.py` で直接動作確認する
+- ある程度変更がまとまったら、上記コマンドで **再ビルド** して exe を作り直す
+- 配布・常駐用の exe は Downloads やスタートアップフォルダなど、リポジトリ外のコピーを使う運用でもよい
+
+### exe配布のベストプラクティス(参考)
+
+- `--onefile` は実行時に一時フォルダへ自己展開するため、起動が数秒遅くなり、その展開動作がアンチウイルスの誤検知(false positive)を招きやすい。個人PCでの常駐用途なら実用上問題ないが、Windows Defender等で警告が出る場合は `--onedir`(展開不要でAV誤検知が少なく、2回目以降の起動も高速)への切り替えを検討する
+- UPX圧縮(デフォルトで有効)も誤検知の一因になり得るため、警告が出る場合は `--noupx` を試す
+- 他人のPCへ広く配布する場合は、コード署名証明書(.pfx)で `signtool` を使い署名すると、AV警告の減少と信頼度(reputation)の蓄積につながる。誤検知が出た場合は各AVベンダーへ報告すれば通常数日でホワイトリスト化される
+- 参考: [PyInstaller Antivirus False Positives](https://www.pythonguis.com/faq/problems-with-antivirus-software-and-pyinstaller/) / [Code Signing Recipe](https://github.com/pyinstaller/pyinstaller/wiki/Recipe-Win-Code-Signing) / [onefile vs onedir 起動速度の議論](https://discuss.python.org/t/opinion-pyinstaller-onefile-or-onedir-for-program-distribution/106137)
 
 ## 構成
 
