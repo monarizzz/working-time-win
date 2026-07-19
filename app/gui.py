@@ -1,12 +1,20 @@
+import time
 import tkinter as tk
 from tkinter import ttk
 
+import psutil
+
 from . import db, icons
+
+UPTIME_REFRESH_MS = 60_000
 
 
 def format_seconds(total: int) -> str:
-    h, rem = divmod(int(total), 3600)
+    d, rem = divmod(int(total), 86400)
+    h, rem = divmod(rem, 3600)
     m, s = divmod(rem, 60)
+    if d:
+        return f"{d}日{h}時間"
     if h:
         return f"{h}時間{m}分"
     if m:
@@ -35,6 +43,11 @@ class DashboardWindow(tk.Toplevel):
         self.total_label = ttk.Label(top, text="", font=("", 10, "bold"))
         self.total_label.pack(side=tk.RIGHT)
 
+        uptime_row = ttk.Frame(self, padding=(10, 0))
+        uptime_row.pack(fill=tk.X)
+        self.uptime_label = ttk.Label(uptime_row, text="")
+        self.uptime_label.pack(side=tk.LEFT)
+
         self.canvas = tk.Canvas(self, bg="white")
         self.canvas.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
@@ -42,6 +55,7 @@ class DashboardWindow(tk.Toplevel):
 
         self.load_days()
         self.refresh()
+        self.update_uptime()
 
     def load_days(self):
         days = db.get_available_days()
@@ -53,6 +67,11 @@ class DashboardWindow(tk.Toplevel):
         self.day_combo["values"] = days
         if not self.day_var.get():
             self.day_var.set(today)
+
+    def update_uptime(self):
+        uptime_seconds = time.time() - psutil.boot_time()
+        self.uptime_label.config(text=f"PC起動から: {format_seconds(uptime_seconds)}")
+        self.after(UPTIME_REFRESH_MS, self.update_uptime)
 
     def refresh(self):
         self.load_days()
