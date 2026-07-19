@@ -1,6 +1,9 @@
 import ctypes
 import tkinter as tk
 
+import sv_ttk
+
+from .theme import is_dark_mode
 from .tracker import Tracker
 from .gui import DashboardWindow
 from .tray import TrayApp
@@ -29,6 +32,7 @@ def main():
 
     root = tk.Tk()
     root.withdraw()
+    sv_ttk.set_theme("dark" if is_dark_mode() else "light")
 
     dashboard = DashboardWindow(root)
 

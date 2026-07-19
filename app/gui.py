@@ -5,6 +5,7 @@ from tkinter import ttk
 import psutil
 
 from . import db, icons
+from .theme import is_dark_mode
 
 UPTIME_REFRESH_MS = 60_000
 UPTIME_TOOLTIP_TEXT = (
@@ -14,9 +15,11 @@ UPTIME_TOOLTIP_TEXT = (
 
 
 class Tooltip:
-    def __init__(self, widget, text):
+    def __init__(self, widget, text, bg="#ffffe0", fg="black"):
         self.widget = widget
         self.text = text
+        self.bg = bg
+        self.fg = fg
         self.tip_window = None
         widget.bind("<Enter>", self.show)
         widget.bind("<Leave>", self.hide)
@@ -31,7 +34,7 @@ class Tooltip:
         tw.wm_geometry(f"+{x}+{y}")
         tk.Label(
             tw, text=self.text, justify=tk.LEFT,
-            background="#ffffe0", relief=tk.SOLID, borderwidth=1,
+            background=self.bg, foreground=self.fg, relief=tk.SOLID, borderwidth=1,
             font=("", 9), padx=6, pady=3,
         ).pack()
 
@@ -58,31 +61,73 @@ class DashboardWindow(tk.Toplevel):
     def __init__(self, master=None):
         super().__init__(master)
         self.title("ソフトウェア使用時間ダッシュボード")
-        self.geometry("560x480")
-        self.minsize(480, 360)
+        self.geometry("680x560")
+        self.minsize(560, 420)
 
-        top = ttk.Frame(self, padding=10)
+        dark = is_dark_mode()
+        if dark:
+            self.canvas_bg = "#1e1e1e"
+            self.canvas_fg = "#e8e8e8"
+            widget_bg = "#252525"
+            field_bg = "#2d2d2d"
+            border = "#3a3a3a"
+            active_bg = "#3a3a3a"
+        else:
+            self.canvas_bg = "white"
+            self.canvas_fg = "black"
+            widget_bg = "#f0f0f0"
+            field_bg = "white"
+            border = "#c0c0c0"
+            active_bg = "#e0e0e0"
+
+        self.configure(bg=self.canvas_bg)
+
+        style = ttk.Style(self)
+        style.configure("Dash.TFrame", background=self.canvas_bg)
+        style.configure("Dash.TLabel", background=self.canvas_bg, foreground=self.canvas_fg)
+        style.configure(
+            "Dash.TButton", background=widget_bg, foreground=self.canvas_fg,
+            bordercolor=border, focuscolor=border,
+        )
+        style.map("Dash.TButton", background=[("active", active_bg)])
+        style.configure(
+            "Dash.TCombobox", fieldbackground=field_bg, background=widget_bg,
+            foreground=self.canvas_fg, arrowcolor=self.canvas_fg, bordercolor=border,
+        )
+        style.map(
+            "Dash.TCombobox",
+            fieldbackground=[("readonly", field_bg)],
+            foreground=[("readonly", self.canvas_fg)],
+            background=[("readonly", widget_bg)],
+        )
+        self.option_add("*TCombobox*Listbox.background", field_bg)
+        self.option_add("*TCombobox*Listbox.foreground", self.canvas_fg)
+        self.option_add("*TCombobox*Listbox.selectBackground", active_bg)
+
+        top = ttk.Frame(self, padding=(18, 16), style="Dash.TFrame")
         top.pack(fill=tk.X)
 
-        ttk.Label(top, text="日付:").pack(side=tk.LEFT)
+        ttk.Label(top, text="日付:", style="Dash.TLabel").pack(side=tk.LEFT, padx=(0, 8))
         self.day_var = tk.StringVar()
-        self.day_combo = ttk.Combobox(top, textvariable=self.day_var, state="readonly", width=15)
-        self.day_combo.pack(side=tk.LEFT, padx=5)
+        self.day_combo = ttk.Combobox(
+            top, textvariable=self.day_var, state="readonly", width=15, style="Dash.TCombobox",
+        )
+        self.day_combo.pack(side=tk.LEFT, padx=(0, 12))
         self.day_combo.bind("<<ComboboxSelected>>", lambda e: self.refresh())
 
-        ttk.Button(top, text="更新", command=self.refresh).pack(side=tk.LEFT, padx=5)
+        ttk.Button(top, text="更新", command=self.refresh, style="Dash.TButton").pack(side=tk.LEFT)
 
-        self.total_label = ttk.Label(top, text="", font=("", 10, "bold"))
+        self.total_label = ttk.Label(top, text="", font=("", 11, "bold"), style="Dash.TLabel")
         self.total_label.pack(side=tk.RIGHT)
 
-        uptime_row = ttk.Frame(self, padding=(10, 0))
+        uptime_row = ttk.Frame(self, padding=(18, 0, 18, 12), style="Dash.TFrame")
         uptime_row.pack(fill=tk.X)
-        self.uptime_label = ttk.Label(uptime_row, text="")
+        self.uptime_label = ttk.Label(uptime_row, text="", style="Dash.TLabel")
         self.uptime_label.pack(side=tk.LEFT)
-        Tooltip(self.uptime_label, UPTIME_TOOLTIP_TEXT)
+        Tooltip(self.uptime_label, UPTIME_TOOLTIP_TEXT, bg=field_bg, fg=self.canvas_fg)
 
-        self.canvas = tk.Canvas(self, bg="white")
-        self.canvas.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.canvas = tk.Canvas(self, bg=self.canvas_bg, highlightthickness=0)
+        self.canvas.pack(fill=tk.BOTH, expand=True, padx=18, pady=(0, 18))
 
         self.protocol("WM_DELETE_WINDOW", self.withdraw)
 
@@ -118,21 +163,23 @@ class DashboardWindow(tk.Toplevel):
         self.canvas.delete("all")
         self._icon_refs = []
         if not rows:
-            self.canvas.create_text(20, 20, anchor="nw", text="この日のデータはありません")
+            self.canvas.create_text(
+                20, 20, anchor="nw", text="この日のデータはありません", fill=self.canvas_fg
+            )
             return
 
         max_seconds = max(r[2] for r in rows) or 1
-        bar_height = 28
-        gap = 12
-        icon_size = 20
-        icon_x = 14
-        text_x = icon_x + icon_size + 8
-        left_margin = 200
-        right_margin = 90
+        bar_height = 34
+        gap = 18
+        icon_size = 22
+        icon_x = 18
+        text_x = icon_x + icon_size + 12
+        left_margin = 230
+        right_margin = 110
         canvas_width = self.canvas.winfo_width() or 500
         bar_area_width = max(canvas_width - left_margin - right_margin, 50)
 
-        y = 10
+        y = 16
         for process_name, display_name, total, exe_path in rows:
             bar_len = int((total / max_seconds) * bar_area_width)
             photo = icons.get_icon_photo(process_name, exe_path, size=icon_size)
@@ -140,15 +187,15 @@ class DashboardWindow(tk.Toplevel):
                 self._icon_refs.append(photo)
                 self.canvas.create_image(icon_x, y + bar_height / 2, anchor="w", image=photo)
             self.canvas.create_text(
-                text_x, y + bar_height / 2, anchor="w", text=display_name
+                text_x, y + bar_height / 2, anchor="w", text=display_name, fill=self.canvas_fg
             )
             self.canvas.create_rectangle(
                 left_margin, y, left_margin + bar_len, y + bar_height,
                 fill="#4a90d9", outline=""
             )
             self.canvas.create_text(
-                left_margin + bar_len + 8, y + bar_height / 2, anchor="w",
-                text=format_seconds(total)
+                left_margin + bar_len + 12, y + bar_height / 2, anchor="w",
+                text=format_seconds(total), fill=self.canvas_fg
             )
             y += bar_height + gap
 
