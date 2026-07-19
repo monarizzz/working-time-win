@@ -1,6 +1,8 @@
 # working_time
 
 Windows用ソフトウェア使用時間トラッカー。アクティブウィンドウのプロセス単位で使用時間を計測し、タスクトレイに常駐しつつダッシュボードで確認できます。
+<img width="606" height="539" alt="image" src="https://github.com/user-attachments/assets/be339fb4-514e-451d-825d-6ff71458fb19" />
+
 
 ## セットアップ (Windows)
 
